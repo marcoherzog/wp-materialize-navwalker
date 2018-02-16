@@ -1,102 +1,114 @@
 <?php
 
-/**
- * Class Name: wp_materialize_navwalker
- * GitHub URI: #
- * Description: A custom WordPress nav walker class to "fully" implement the Materialize CSS nested navigation style in a custom theme using the WordPress manager
- * Version: 1.0.0
- * Author: Kailo - https://kailo.io
- * License: MIT
- * License URI: #
- */
+// Creates a custom walker menu
 
-class wp_materialize_navwalker extends Walker {
-  var $db_fields = array( 'parent' => 'menu_item_parent', 'id' => 'db_id' );
+class MDLWP_Nav_Walker_top_menu extends Walker_Nav_Menu {
 
-    function start_lvl( &$output, $depth = 0, $args = array() ) {
-        // Depth-dependent classes.
-        $indent = ( $depth > 0  ? str_repeat( "\t", $depth ) : '' ); // code indent
-        $display_depth = ( $depth + 1); // because it counts the first submenu as 0
-        $classes = array(
-            'dropdown-content',
-            ( $display_depth % 2  ? 'menu-odd' : 'menu-even' ),
-            ( $display_depth >=2 ? 'sub-sub-menu' : '' ),
-            'menu-depth-' . $display_depth
-        );
-        $class_names = implode( ' ', $classes );
+	private $curItem;
 
-        // Build HTML for output.
-        $output .= "\n" . $indent . ' class="' . $class_names . '">' . "\n";
-    }
+	function start_lvl( &$output, $depth, $args = array() ) {
 
-  function end_lvl( &$output, $depth = 0, $args = array() ) {
-    $indent = str_repeat("\t", $depth);
+		$item = $this->curItem;
+		$indent = ( $depth > 0  ? str_repeat( "\t", $depth ) : '' ); // code indent
+
+		$display_depth = ( $depth + 1); // because it counts the first submenu as 0
+		$classes = array(
+				'mdl-menu','mdl-js-menu','mdl-js-ripple-effect',
+				( $display_depth % 2  ? 'menu-odd' : 'menu-even' ),
+				( $display_depth >=2 ? 'sub-sub-menu' : '' ),
+				'menu-depth-' . $display_depth
+		);
+		$class_names = implode( ' ', $classes );
+		/*var_dump($args);*/
+
+		$output .= "\n" . $indent . '<ul class="' . $class_names . '" for="sub_menu_' . $args->theme_location . '_' . $item->ID . '">' . "\n";
+
+	}
+
+	function end_lvl( &$output, $depth = 0, $args = array() ) {
+		$indent = str_repeat("\t", $depth);
     $output .= "$indent</ul>\n";
-  }
+	}
 
-    function start_el( &$output, $item, $depth = 0, $args = array(), $id = 0 ) {
-        global $wp_query;
-        $indent = ( $depth > 0 ? str_repeat( "\t", $depth ) : '' ); // code indent
+	function start_el( &$output, $item, $depth = 0, $args = array(), $id = 0 ) {
+		$this->curItem = $item;
 
-        // Depth-dependent classes.
-        $depth_classes = array(
-            ( $depth == 0 ? 'main-menu-item' : 'sub-menu-item' ),
-            ( $depth >=2 ? 'sub-sub-menu-item' : '' ),
-            ( $depth % 2 ? 'menu-item-odd' : 'menu-item-even' ),
-            'menu-item-depth-' . $depth
-        );
-        $depth_class_names = esc_attr( implode( ' ', $depth_classes ) );
+		$indent = ( $depth > 0 ? str_repeat( "\t", $depth ) : '' ); // code indent
 
-        // Passed classes.
-        $classes = empty( $item->classes ) ? array() : (array) $item->classes;
-        $class_names = esc_attr( implode( ' ', apply_filters( 'nav_menu_css_class', array_filter( $classes ), $item ) ) );
+		$class_names = $value = '';
 
-    /* Add active class */
-    if(in_array('current-menu-item', $classes)) {
-      $classes[] = 'active';
-      unset($classes['current-menu-item']);
-    }
+		$classes = empty( $item->classes ) ? array() : (array) $item->classes;
+		$classes[] = 'menu-item-' . $item->ID;
 
-    /* Check for children */
-    $children = get_posts(array(
-      'post_type' => 'nav_menu_item',
-      'nopaging' => true,
-      'numberposts' => 1,
-      'meta_key' => '_menu_item_menu_item_parent',
-      'meta_value' => $item->ID
-      ));
+		$class_names = join( ' ', apply_filters( 'nav_menu_css_class', array_filter( $classes ), $item, $args ) );
 
-    if (!empty($children)) {
-      $classes[] = 'dropdown';
-    }
-    $class_names = join( ' ', apply_filters( 'nav_menu_css_class', array_filter( $classes ), $item, $args ) );
-    // $class_names = $class_names ? ' class="' . esc_attr( $class_names ) . '"' : '';
-    // $id = apply_filters( 'nav_menu_item_id', 'menu-item-'. $item->ID, $item, $args );
-    // $id = $id ? ' id="' . esc_attr( $id ) . '"' : '';
-    $output     .= $indent . '<li id="nav-menu-item-'. $item->ID . '" class="' . $depth_class_names . '">';
-    $attributes  = ! empty( $item->attr_title ) ? ' title="'  . esc_attr( $item->attr_title ) .'"' : '';
-    $attributes .= ! empty( $item->target )     ? ' target="' . esc_attr( $item->target     ) .'"' : '';
-    $attributes .= ! empty( $item->xfn )        ? ' rel="'    . esc_attr( $item->xfn        ) .'"' : '';
-    $attributes .= ! empty( $item->url )        ? ' href="'   . esc_attr( $item->url        ) .'"' : '';
-    $attributes .= ! empty( $children )         ? ' data-activates="dropdown-'. $item->ID .'"' : '';
-    $attributes .= ! empty( $children )         ? ' class="dropdown-button '. $depth_class_names .'"' : '';
+		if ( in_array( 'current-menu-item', $classes ) )
+				$class_names .= ' is-active';
 
-    $item_output .= '<a'. $attributes .'>';
-    $item_output .= $args->link_before . apply_filters( 'the_title', $item->title, $item->ID ) . $args->link_after;
+		if ($depth == 0) {
+			$class_names = $class_names ? ' class="mdl-navigation__link ' . esc_attr( $class_names ) . '"' : '';
+		}
 
-    if(!empty($children))
-      $item_output .= '<i class="material-icons right">arrow_drop_down</i>';
+		$id = apply_filters( 'nav_menu_item_id', 'menu-item-'. $item->ID, $item, $args );
+		$id = $id ? ' id="' . esc_attr( $id ) . '"' : '';
 
-    $item_output .= '</a>';
+		$output .= $indent . '';
 
-    $item_output .= $args->after;
+		$attributes  = ! empty( $item->attr_title ) ? ' title="'  . esc_attr( $item->attr_title ) .'"' : '';
+		$attributes .= ! empty( $item->target )     ? ' target="' . esc_attr( $item->target     ) .'"' : '';
+		$attributes .= ! empty( $item->xfn )        ? ' rel="'    . esc_attr( $item->xfn        ) .'"' : '';
 
-    if(!empty($children))
-      $item_output .= '<ul id="dropdown-'.$item->ID.'"';
-    $output .= apply_filters( 'walker_nav_menu_start_el', $item_output, $item, $depth, $args );
+		// change links for sectional pages
+		// https://wordpress.stackexchange.com/a/13984/31634
+		// check if page has parent
+		// https://codex.wordpress.org/Conditional_Tags#A_PAGE_Page
 
-  }
-  function end_el( &$output, $item, $depth = 0, $args = array() ) {
-    $output .= "</li>\n";
-  }
+		$post_id = get_post_meta( $item->ID, '_menu_item_object_id', true ); //get post id from the menu item id
+		$post_item = get_post( $post_id ); //get post by id
+		$page_templates = array("page-sectional.php", "page-sectional-navi.php", "page-tabbed.php");
+
+		if ( in_array( get_post_meta( $post_item->post_parent, '_wp_page_template', true ), $page_templates ) && !$args->walker->has_children ) { // check if current item is child of sectional page item
+				$parent_item = get_post( $post_item->post_parent );
+				$attributes .= ' href="' . get_permalink( $parent_item->ID ) . '#' . $post_item->post_name . '"';
+		} elseif ( in_array( get_post_meta( $post_item->ID, '_wp_page_template', true ), $page_templates ) && !$args->walker->has_children ) { // check if current item is menu item of sectional page
+				$attributes .= ' href="' . get_permalink( $post_item->ID ) . '#content"';
+		} elseif ( $args->walker->has_children ) { // check if current item is menu item of sectional page
+				$attributes .= ' href="#"';
+		} else { //DEFAULT:
+				$attributes .= ! empty( $item->url ) ? ' href="' . esc_attr( $item->url        ) . '"' : '';
+		}
+
+		$attributes .= $class_names;
+
+		$item_output = $args->before;
+
+		if ($args->walker->has_children && $depth == 0) {
+			$item_output .= '<a'. $attributes .' id="sub_menu_' . $args->theme_location . '_' . $item->ID . '">';
+		} elseif ($depth > 0) {
+			$item_output .= '<li class="mdl-menu__item"><a'. $attributes .'>';
+		} else {
+			$item_output .= '<a'. $attributes .'>';
+		}
+
+		$item_output .= $args->link_before . apply_filters( 'the_title', $item->title, $item->ID ) . $args->link_after;
+
+		if ($args->walker->has_children && $depth == 0) {
+			$item_output .= ' <i class="material-icons">arrow_drop_down</i></a>';
+		} elseif ($args->walker->has_children && $depth > 0) {
+			$item_output .= ' <i class="material-icons">arrow_drop_down</i></a>';
+		} elseif ($depth > 0) {
+			$item_output .= '</li></a>';
+		} else {
+			$item_output .= '</a>';
+		}
+
+		$item_output .= $args->after;
+
+		$output .= apply_filters( 'walker_nav_menu_start_el', $item_output, $item, $depth, $args );
+	}
+
+
+	function end_el( &$output, $item, $depth = 0, $args = array() ) {
+		$output .= "\n";
+	}
 }
